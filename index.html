@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Absensi Santri - PP Darul 'Izzi Wadda'wah</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #0d9488 0%, #065f46 50%, #064e3b 100%);
+    }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .scan-line {
+      position: absolute;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #10b981, transparent);
+      animation: scan 2s linear infinite;
+    }
+    
+    @keyframes scan {
+      0% { top: 0; }
+      50% { top: calc(100% - 3px); }
+      100% { top: 0; }
+    }
+    
+    .pulse-ring {
+      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      80%, 100% { transform: scale(1.3); opacity: 0; }
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.4);
+    }
+    
+    .sidebar-item {
+      transition: all 0.2s ease;
+    }
+    
+    .sidebar-item:hover, .sidebar-item.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-left: 4px solid #10b981;
+    }
+    
+    .table-row:hover {
+      background: rgba(16, 185, 129, 0.05);
+    }
+    
+    .modal-overlay {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+    }
+    
+    .toast {
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    #video-preview {
+      transform: scaleX(-1);
+    }
+    
+    .barcode-svg {
+      max-width: 200px;
+      height: 60px;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full bg-gray-50">
+  <div id="app" class="h-full overflow-auto"><!-- Login Page -->
+   <div id="login-page" class="min-h-full gradient-bg flex items-center justify-center p-4">
+    <div class="glass-card rounded-3xl shadow-2xl p-8 w-full max-w-md">
+     <div class="text-center mb-8">
+      <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
+       <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+       </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-800 mb-1">Sistem Absensi Santri</h1>
+      <p class="text-sm text-gray-600 leading-relaxed">Pondok Pesantren Darul 'Izzi<br>
+       Wadda'wah Semarang</p>
+     </div>
+     <form id="login-form" class="space-y-5">
+      <div><label class="block text-sm font-semibold text-gray-700 mb-2">Username</label> <input type="text" id="login-username" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" placeholder="Masukkan username">
+      </div>
+      <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password</label> <input type="password" id="login-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" placeholder="Masukkan password">
+      </div>
+      <div id="login-error" class="hidden text-red-500 text-sm text-center bg-red-50 p-3 rounded-xl"></div><button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-xl shadow-lg"> Masuk </button>
+     </form>
+    </div>
+   </div><!-- Dashboard Container -->
+   <div id="dashboard-container" class="hidden h-full flex"><!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-gray-900 text-white flex flex-col">
+     <div class="p-6 border-b border-gray-700">
+      <div class="flex items-center gap-3">
+       <div class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        </svg>
+       </div>
+       <div>
+        <h2 class="font-bold text-sm">PP Darul 'Izzi</h2>
+        <p class="text-xs text-gray-400">Absensi Santri</p>
+       </div>
+      </div>
+     </div>
+     <nav id="sidebar-nav" class="flex-1 py-4"><!-- Dynamic menu items -->
+     </nav>
+     <div class="p-4 border-t border-gray-700">
+      <div id="user-info" class="flex items-center gap-3 mb-3">
+       <div class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center"><span id="user-initial" class="text-white font-bold">A</span>
+       </div>
+       <div>
+        <p id="user-name-display" class="text-sm font-semibold">Admin</p>
+        <p id="user-role-display" class="text-xs text-gray-400">Administrator</p>
+       </div>
+      </div><button id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm py-2 rounded-lg transition-colors"> Keluar </button>
+     </div>
+    </aside><!-- Main Content -->
+    <main class="flex-1 overflow-auto bg-gray-50">
+     <div id="main-content" class="p-6"><!-- Dynamic content -->
+     </div>
+    </main>
+   </div><!-- Camera Modal -->
+   <div id="camera-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+     <div class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex justify-between items-center">
+      <h3 class="font-bold text-lg">📷 Scan Barcode Santri</h3><button id="close-camera-btn" class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+       </svg></button>
+     </div>
+     <div class="p-4">
+      <div id="camera-container" class="relative bg-black rounded-xl overflow-hidden aspect-video">
+       <video id="video-preview" class="w-full h-full object-cover"></video>
+       <div class="absolute inset-0 pointer-events-none">
+        <div class="scan-line"></div>
+        <div class="absolute inset-0 border-4 border-emerald-500/50 m-8 rounded-lg"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+         <div class="w-48 h-32 border-2 border-emerald-400 rounded-lg"></div>
+        </div>
+       </div>
+       <div id="camera-loading" class="absolute inset-0 bg-gray-900 flex items-center justify-center">
+        <div class="text-center text-white">
+         <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+         <p class="text-sm">Mengaktifkan kamera...</p>
+        </div>
+       </div>
+       <div id="camera-error" class="hidden absolute inset-0 bg-gray-900 flex items-center justify-center">
+        <div class="text-center text-white p-4">
+         <svg class="w-16 h-16 text-red-500 mx-auto mb-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+         </svg>
+         <p class="font-semibold mb-2">Kamera Tidak Tersedia</p>
+         <p class="text-sm text-gray-400" id="camera-error-msg">Izinkan akses kamera untuk melakukan absensi</p>
+        </div>
+       </div>
+      </div>
+      <div id="scan-result" class="hidden mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+       <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center">
+         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+         </svg>
+        </div>
+        <div>
+         <p class="font-bold text-emerald-800" id="scan-result-name">-</p>
+         <p class="text-sm text-emerald-600" id="scan-result-class">-</p>
+        </div>
+       </div>
+      </div>
+      <p class="text-center text-sm text-gray-500 mt-4">Arahkan barcode santri ke kamera</p>
+     </div>
+    </div>
+   </div><!-- Add/Edit Modal -->
+   <div id="form-modal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90%] overflow-auto">
+     <div class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex justify-between items-center sticky top-0">
+      <h3 id="modal-title" class="font-bold text-lg">Form</h3><button id="close-modal-btn" class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+       </svg></button>
+     </div>
+     <div id="modal-content" class="p-6"><!-- Dynamic form content -->
+     </div>
+    </div>
+   </div><!-- Toast Container -->
+   <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+  </div>
+  <script>
+    // App State
+    let currentUser = null;
+    let allData = [];
+    let codeReader = null;
+    let videoStream = null;
+    
+    const defaultConfig = {
+      app_title: "Sistem Absensi Santri"
+    };
+    
+    // Admin credentials
+    const ADMIN_CREDENTIALS = {
+      username: "umarbaba6787",
+      password: "dizwa212"
+    };
+    
+    const CLASSES = ["Ibtida'iyah 1", "TPQ", "Ibtida'iyah 2", "Ibtida'iyah 3"];
+    
+    // Data Handler
+    const dataHandler = {
+      onDataChanged(data) {
+        allData = data;
+        if (currentUser) {
+          renderCurrentView();
+        }
+      }
+    };
+    
+    // Initialize
+    async function init() {
+      const initResult = await window.dataSdk.init(dataHandler);
+      if (!initResult.isOk) {
+        showToast('Gagal menginisialisasi sistem', 'error');
+      }
+      
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            document.title = config.app_title || defaultConfig.app_title;
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [],
+            borderables: [],
+            fontEditable: undefined,
+            fontSizeable: undefined
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ["app_title", config.app_title || defaultConfig.app_title]
+          ])
+        });
+      }
+      
+      setupEventListeners();
+    }
+    
+    // Event Listeners
+    function setupEventListeners() {
+      document.getElementById('login-form').addEventListener('submit', handleLogin);
+      document.getElementById('logout-btn').addEventListener('click', handleLogout);
+      document.getElementById('close-camera-btn').addEventListener('click', closeCamera);
+      document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+    }
+    
+    // Login Handler
+    function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+      const errorEl = document.getElementById('login-error');
+      
+      if (!username || !password) {
+        errorEl.textContent = 'Username dan password harus diisi';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      
+      // Check admin
+      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        currentUser = { username, role: 'admin', name: 'Administrator' };
+        showDashboard();
+        return;
+      }
+      
+      // Check users in data
+      const user = allData.find(d => 
+        d.type === 'user' && 
+        d.user_username === username && 
+        d.user_password === password
+      );
+      
+      if (user) {
+        currentUser = { 
+          username: user.user_username, 
+          role: user.user_role, 
+          name: user.user_name,
+          id: user.__backendId
+        };
+        showDashboard();
+      } else {
+        errorEl.textContent = 'Username atau password salah';
+        errorEl.classList.remove('hidden');
+      }
+    }
+    
+    function handleLogout() {
+      currentUser = null;
+      document.getElementById('login-page').classList.remove('hidden');
+      document.getElementById('dashboard-container').classList.add('hidden');
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-error').classList.add('hidden');
+    }
+    
+    // Show Dashboard
+    function showDashboard() {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('dashboard-container').classList.remove('hidden');
+      
+      // Update user info
+      document.getElementById('user-initial').textContent = currentUser.name.charAt(0).toUpperCase();
+      document.getElementById('user-name-display').textContent = currentUser.name;
+      document.getElementById('user-role-display').textContent = getRoleLabel(currentUser.role);
+      
+      // Setup sidebar
+      setupSidebar();
+      renderCurrentView();
+    }
+    
+    function getRoleLabel(role) {
+      const labels = { admin: 'Administrator', ustadz: 'Ustadz', wali: 'Wali Santri' };
+      return labels[role] || role;
+    }
+    
+    function setupSidebar() {
+      const nav = document.getElementById('sidebar-nav');
+      let menuItems = [];
+      
+      if (currentUser.role === 'admin') {
+        menuItems = [
+          { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+          { id: 'santri', icon: '👨‍🎓', label: 'Data Santri' },
+          { id: 'attendance', icon: '📋', label: 'Absensi' },
+          { id: 'users', icon: '👥', label: 'Kelola Akun' },
+          { id: 'scan', icon: '📷', label: 'Scan Barcode' }
+        ];
+      } else if (currentUser.role === 'ustadz') {
+        menuItems = [
+          { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+          { id: 'santri', icon: '👨‍🎓', label: 'Daftar Santri' },
+          { id: 'attendance', icon: '📋', label: 'Riwayat Absensi' },
+          { id: 'scan', icon: '📷', label: 'Scan Barcode' }
+        ];
+      } else if (currentUser.role === 'wali') {
+        menuItems = [
+          { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+          { id: 'my-child', icon: '👨‍🎓', label: 'Data Anak' },
+          { id: 'attendance', icon: '📋', label: 'Riwayat Absensi' }
+        ];
+      }
+      
+      nav.innerHTML = menuItems.map((item, idx) => `
+        <button class="sidebar-item w-full text-left px-6 py-3 flex items-center gap-3 text-gray-300 hover:text-white ${idx === 0 ? 'active' : ''}" data-view="${item.id}">
+          <span class="text-lg">${item.icon}</span>
+          <span class="text-sm font-medium">${item.label}</span>
+        </button>
+      `).join('');
+      
+      nav.querySelectorAll('.sidebar-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          nav.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentView = btn.dataset.view;
+          renderCurrentView();
+        });
+      });
+    }
+    
+    let currentView = 'dashboard';
+    
+    function renderCurrentView() {
+      const content = document.getElementById('main-content');
+      
+      switch(currentView) {
+        case 'dashboard':
+          renderDashboard(content);
+          break;
+        case 'santri':
+          renderSantriList(content);
+          break;
+        case 'attendance':
+          renderAttendance(content);
+          break;
+        case 'users':
+          renderUsers(content);
+          break;
+        case 'scan':
+          openCamera();
+          break;
+        case 'my-child':
+          renderMyChild(content);
+          break;
+        default:
+          renderDashboard(content);
+      }
+    }
+    
+    // Render Dashboard
+    function renderDashboard(container) {
+      const santriCount = allData.filter(d => d.type === 'santri').length;
+      const todayAttendance = allData.filter(d => 
+        d.type === 'attendance' && 
+        d.attendance_date === new Date().toISOString().split('T')[0]
+      ).length;
+      const usersCount = allData.filter(d => d.type === 'user').length;
+      
+      let extraStats = '';
+      if (currentUser.role === 'admin') {
+        extraStats = `
+          <div class="glass-card rounded-2xl p-6 border border-gray-100 shadow-lg">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+                <span class="text-2xl">👥</span>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Total Akun</p>
+                <p class="text-3xl font-bold text-gray-800">${usersCount}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      const recentAttendance = allData
+        .filter(d => d.type === 'attendance')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5);
+      
+      container.innerHTML = `
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-gray-800">Selamat Datang, ${currentUser.name}!</h1>
+          <p class="text-gray-500">PP Darul 'Izzi Wadda'wah Semarang</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="glass-card rounded-2xl p-6 border border-gray-100 shadow-lg">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                <span class="text-2xl">👨‍🎓</span>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Total Santri</p>
+                <p class="text-3xl font-bold text-gray-800">${santriCount}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="glass-card rounded-2xl p-6 border border-gray-100 shadow-lg">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
+                <span class="text-2xl">📋</span>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Absensi Hari Ini</p>
+                <p class="text-3xl font-bold text-gray-800">${todayAttendance}</p>
+              </div>
+            </div>
+          </div>
+          
+          ${extraStats}
+        </div>
+        
+        ${currentUser.role !== 'wali' ? `
+        <div class="glass-card rounded-2xl p-6 border border-gray-100 shadow-lg mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">⚡ Aksi Cepat</h2>
+          </div>
+          <button id="quick-scan-btn" class="btn-primary text-white font-semibold py-4 px-6 rounded-xl flex items-center gap-3">
+            <span class="text-2xl">📷</span>
+            <span>SCAN BARCODE ABSENSI</span>
+          </button>
+        </div>
+        ` : ''}
+        
+        <div class="glass-card rounded-2xl p-6 border border-gray-100 shadow-lg">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">📋 Absensi Terbaru</h2>
+          ${recentAttendance.length > 0 ? `
+            <div class="space-y-3">
+              ${recentAttendance.map(a => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                      <span class="text-emerald-600 font-bold">${a.attendance_santri_name.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-gray-800">${a.attendance_santri_name}</p>
+                      <p class="text-xs text-gray-500">${a.attendance_class}</p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-sm font-medium text-emerald-600">${a.attendance_status}</p>
+                    <p class="text-xs text-gray-500">${a.attendance_date} ${a.attendance_time}</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : '<p class="text-gray-500 text-center py-4">Belum ada data absensi</p>'}
+        </div>
+      `;
+      
+      const quickScanBtn = document.getElementById('quick-scan-btn');
+      if (quickScanBtn) {
+        quickScanBtn.addEventListener('click', openCamera);
+      }
+    }
+    
+    // Generate Barcode SVG
+    function generateBarcodeSVG(code) {
+      const bars = [];
+      let x = 10;
+      
+      for (let i = 0; i < code.length; i++) {
+        const charCode = code.charCodeAt(i);
+        const pattern = charCode.toString(2).padStart(8, '0');
+        
+        for (let j = 0; j < pattern.length; j++) {
+          if (pattern[j] === '1') {
+            bars.push(`<rect x="${x}" y="5" width="2" height="40" fill="#000"/>`);
+          }
+          x += 2;
+        }
+        x += 2;
+      }
+      
+      return `<svg class="barcode-svg" viewBox="0 0 ${x + 10} 60" xmlns="http://www.w3.org/2000/svg">
+        ${bars.join('')}
+        <text x="${(x + 10) / 2}" y="55" text-anchor="middle" font-size="8" font-family="monospace">${code}</text>
+      </svg>`;
+    }
+    
+    // Render Santri List
+    function renderSantriList(container) {
+      const santriList = allData.filter(d => d.type === 'santri');
+      
+      container.innerHTML = `
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Data Santri</h1>
+            <p class="text-gray-500">Kelola data santri pesantren</p>
+          </div>
+          ${currentUser.role === 'admin' ? `
+            <button id="add-santri-btn" class="btn-primary text-white font-semibold py-3 px-5 rounded-xl flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Tambah Santri
+            </button>
+          ` : ''}
+        </div>
+        
+        <div class="glass-card rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Nama</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Kelas</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Barcode</th>
+                  ${currentUser.role === 'admin' ? '<th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Aksi</th>' : ''}
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${santriList.length > 0 ? santriList.map(s => `
+                  <tr class="table-row">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <span class="text-emerald-600 font-bold">${s.santri_name.charAt(0)}</span>
+                        </div>
+                        <span class="font-medium text-gray-800">${s.santri_name}</span>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">${s.santri_class}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                      ${generateBarcodeSVG(s.santri_barcode)}
+                    </td>
+                    ${currentUser.role === 'admin' ? `
+                      <td class="px-6 py-4 text-right">
+                        <button class="edit-santri-btn text-blue-600 hover:text-blue-800 mr-3" data-id="${s.__backendId}">Edit</button>
+                        <button class="delete-santri-btn text-red-600 hover:text-red-800" data-id="${s.__backendId}">Hapus</button>
+                      </td>
+                    ` : ''}
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="${currentUser.role === 'admin' ? 4 : 3}" class="px-6 py-8 text-center text-gray-500">
+                      Belum ada data santri
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      
+      if (currentUser.role === 'admin') {
+        document.getElementById('add-santri-btn')?.addEventListener('click', () => showSantriForm());
+        document.querySelectorAll('.edit-santri-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const santri = allData.find(d => d.__backendId === btn.dataset.id);
+            if (santri) showSantriForm(santri);
+          });
+        });
+        document.querySelectorAll('.delete-santri-btn').forEach(btn => {
+          btn.addEventListener('click', () => confirmDelete('santri', btn.dataset.id));
+        });
+      }
+    }
+    
+    // Show Santri Form
+    function showSantriForm(santri = null) {
+      const modal = document.getElementById('form-modal');
+      const title = document.getElementById('modal-title');
+      const content = document.getElementById('modal-content');
+      
+      title.textContent = santri ? 'Edit Santri' : 'Tambah Santri';
+      
+      const waliList = allData.filter(d => d.type === 'user' && d.user_role === 'wali');
+      
+      content.innerHTML = `
+        <form id="santri-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Nama Santri</label>
+            <input type="text" id="santri-name" value="${santri?.santri_name || ''}" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" required>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Kelas</label>
+            <select id="santri-class" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" required>
+              ${CLASSES.map(c => `<option value="${c}" ${santri?.santri_class === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Wali Santri (Opsional)</label>
+            <select id="santri-wali" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none">
+              <option value="">-- Pilih Wali --</option>
+              ${waliList.map(w => `<option value="${w.__backendId}" ${santri?.santri_wali_id === w.__backendId ? 'selected' : ''}>${w.user_name}</option>`).join('')}
+            </select>
+          </div>
+          ${santri ? `
+            <div class="p-4 bg-gray-50 rounded-xl">
+              <p class="text-sm font-semibold text-gray-700 mb-2">Barcode:</p>
+              <div class="flex justify-center">${generateBarcodeSVG(santri.santri_barcode)}</div>
+            </div>
+          ` : ''}
+          <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-xl">
+            ${santri ? 'Simpan Perubahan' : 'Tambah Santri'}
+          </button>
+        </form>
+      `;
+      
+      modal.classList.remove('hidden');
+      
+      document.getElementById('santri-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('santri-name').value.trim();
+        const kelas = document.getElementById('santri-class').value;
+        const wali = document.getElementById('santri-wali').value;
+        
+        if (!name) {
+          showToast('Nama santri harus diisi', 'error');
+          return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
+        
+        if (santri) {
+          const updated = { ...santri, santri_name: name, santri_class: kelas, santri_wali_id: wali };
+          const result = await window.dataSdk.update(updated);
+          if (result.isOk) {
+            showToast('Data santri berhasil diperbarui', 'success');
+            closeModal();
+          } else {
+            showToast('Gagal memperbarui data', 'error');
+          }
+        } else {
+          const barcode = 'STR' + Date.now().toString(36).toUpperCase();
+          const newSantri = {
+            type: 'santri',
+            santri_id: 'S' + Date.now(),
+            santri_name: name,
+            santri_class: kelas,
+            santri_barcode: barcode,
+            santri_wali_id: wali,
+            created_at: new Date().toISOString()
+          };
+          
+          if (allData.filter(d => d.type === 'santri').length >= 999) {
+            showToast('Batas maksimal 999 santri tercapai', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Tambah Santri';
+            return;
+          }
+          
+          const result = await window.dataSdk.create(newSantri);
+          if (result.isOk) {
+            showToast('Santri berhasil ditambahkan', 'success');
+            closeModal();
+          } else {
+            showToast('Gagal menambahkan santri', 'error');
+          }
+        }
+        
+        submitBtn.disabled = false;
+        submitBtn.textContent = santri ? 'Simpan Perubahan' : 'Tambah Santri';
+      });
+    }
+    
+    // Render Users
+    function renderUsers(container) {
+      const users = allData.filter(d => d.type === 'user');
+      
+      container.innerHTML = `
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Kelola Akun</h1>
+            <p class="text-gray-500">Kelola akun Ustadz dan Wali Santri</p>
+          </div>
+          <button id="add-user-btn" class="btn-primary text-white font-semibold py-3 px-5 rounded-xl flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Tambah Akun
+          </button>
+        </div>
+        
+        <div class="glass-card rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Nama</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Username</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Role</th>
+                  <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${users.length > 0 ? users.map(u => `
+                  <tr class="table-row">
+                    <td class="px-6 py-4 font-medium text-gray-800">${u.user_name}</td>
+                    <td class="px-6 py-4 text-gray-600">${u.user_username}</td>
+                    <td class="px-6 py-4">
+                      <span class="px-3 py-1 ${u.user_role === 'ustadz' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'} rounded-full text-sm">
+                        ${getRoleLabel(u.user_role)}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <button class="edit-user-btn text-blue-600 hover:text-blue-800 mr-3" data-id="${u.__backendId}">Edit</button>
+                      <button class="delete-user-btn text-red-600 hover:text-red-800" data-id="${u.__backendId}">Hapus</button>
+                    </td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                      Belum ada akun terdaftar
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('add-user-btn')?.addEventListener('click', () => showUserForm());
+      document.querySelectorAll('.edit-user-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const user = allData.find(d => d.__backendId === btn.dataset.id);
+          if (user) showUserForm(user);
+        });
+      });
+      document.querySelectorAll('.delete-user-btn').forEach(btn => {
+        btn.addEventListener('click', () => confirmDelete('user', btn.dataset.id));
+      });
+    }
+    
+    // Show User Form
+    function showUserForm(user = null) {
+      const modal = document.getElementById('form-modal');
+      const title = document.getElementById('modal-title');
+      const content = document.getElementById('modal-content');
+      
+      title.textContent = user ? 'Edit Akun' : 'Tambah Akun';
+      
+      content.innerHTML = `
+        <form id="user-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+            <input type="text" id="user-name" value="${user?.user_name || ''}" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" required>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+            <input type="text" id="user-username" value="${user?.user_username || ''}" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" required>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Password ${user ? '(kosongkan jika tidak ingin mengubah)' : ''}</label>
+            <input type="password" id="user-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" ${user ? '' : 'required'}>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Role</label>
+            <select id="user-role" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all outline-none" required>
+              <option value="ustadz" ${user?.user_role === 'ustadz' ? 'selected' : ''}>Ustadz</option>
+              <option value="wali" ${user?.user_role === 'wali' ? 'selected' : ''}>Wali Santri</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-xl">
+            ${user ? 'Simpan Perubahan' : 'Tambah Akun'}
+          </button>
+        </form>
+      `;
+      
+      modal.classList.remove('hidden');
+      
+      document.getElementById('user-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('user-name').value.trim();
+        const username = document.getElementById('user-username').value.trim();
+        const password = document.getElementById('user-password').value;
+        const role = document.getElementById('user-role').value;
+        
+        if (!name || !username) {
+          showToast('Nama dan username harus diisi', 'error');
+          return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
+        
+        if (user) {
+          const updated = { 
+            ...user, 
+            user_name: name, 
+            user_username: username, 
+            user_role: role,
+            user_password: password || user.user_password
+          };
+          const result = await window.dataSdk.update(updated);
+          if (result.isOk) {
+            showToast('Akun berhasil diperbarui', 'success');
+            closeModal();
+          } else {
+            showToast('Gagal memperbarui akun', 'error');
+          }
+        } else {
+          if (!password) {
+            showToast('Password harus diisi', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Tambah Akun';
+            return;
+          }
+          
+          const newUser = {
+            type: 'user',
+            user_name: name,
+            user_username: username,
+            user_password: password,
+            user_role: role,
+            created_at: new Date().toISOString()
+          };
+          
+          if (allData.filter(d => d.type === 'user').length >= 999) {
+            showToast('Batas maksimal akun tercapai', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Tambah Akun';
+            return;
+          }
+          
+          const result = await window.dataSdk.create(newUser);
+          if (result.isOk) {
+            showToast('Akun berhasil ditambahkan', 'success');
+            closeModal();
+          } else {
+            showToast('Gagal menambahkan akun', 'error');
+          }
+        }
+        
+        submitBtn.disabled = false;
+        submitBtn.textContent = user ? 'Simpan Perubahan' : 'Tambah Akun';
+      });
+    }
+    
+    // Render Attendance
+    function renderAttendance(container) {
+      let attendanceList = allData.filter(d => d.type === 'attendance');
+      
+      if (currentUser.role === 'wali') {
+        const myChildren = allData.filter(d => d.type === 'santri' && d.santri_wali_id === currentUser.id);
+        const childIds = myChildren.map(c => c.santri_id);
+        attendanceList = attendanceList.filter(a => childIds.includes(a.attendance_santri_id));
+      }
+      
+      attendanceList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      container.innerHTML = `
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-gray-800">Riwayat Absensi</h1>
+          <p class="text-gray-500">Data kehadiran santri</p>
+        </div>
+        
+        <div class="glass-card rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Santri</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Kelas</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tanggal</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Waktu</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Dicatat Oleh</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${attendanceList.length > 0 ? attendanceList.map(a => `
+                  <tr class="table-row">
+                    <td class="px-6 py-4 font-medium text-gray-800">${a.attendance_santri_name}</td>
+                    <td class="px-6 py-4">
+                      <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">${a.attendance_class}</span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">${a.attendance_date}</td>
+                    <td class="px-6 py-4 text-gray-600">${a.attendance_time}</td>
+                    <td class="px-6 py-4">
+                      <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm">${a.attendance_status}</span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">${a.attendance_recorded_by}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                      Belum ada data absensi
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Render My Child (Wali)
+    function renderMyChild(container) {
+      const myChildren = allData.filter(d => d.type === 'santri' && d.santri_wali_id === currentUser.id);
+      
+      container.innerHTML = `
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-gray-800">Data Anak</h1>
+          <p class="text-gray-500">Informasi santri yang terhubung dengan akun Anda</p>
+        </div>
+        
+        ${myChildren.length > 0 ? myChildren.map(child => {
+          const childAttendance = allData.filter(d => 
+            d.type === 'attendance' && 
+            d.attendance_santri_id === child.santri_id
+          ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+          
+          return `
+            <div class="glass-card rounded-2xl border border-gray-100 shadow-lg p-6 mb-6">
+              <div class="flex items-center gap-4 mb-6">
+                <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                  <span class="text-3xl text-emerald-600 font-bold">${child.santri_name.charAt(0)}</span>
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold text-gray-800">${child.santri_name}</h2>
+                  <p class="text-gray-500">Kelas: ${child.santri_class}</p>
+                </div>
+              </div>
+              
+              <div class="mb-4">
+                <h3 class="font-semibold text-gray-700 mb-3">Barcode Santri:</h3>
+                <div class="bg-white p-4 rounded-xl border inline-block">
+                  ${generateBarcodeSVG(child.santri_barcode)}
+                </div>
+              </div>
+              
+              <div>
+                <h3 class="font-semibold text-gray-700 mb-3">Riwayat Absensi Terakhir:</h3>
+                ${childAttendance.length > 0 ? `
+                  <div class="space-y-2">
+                    ${childAttendance.map(a => `
+                      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <div>
+                          <p class="font-medium text-gray-800">${a.attendance_date}</p>
+                          <p class="text-sm text-gray-500">${a.attendance_time}</p>
+                        </div>
+                        <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm">${a.attendance_status}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : '<p class="text-gray-500">Belum ada riwayat absensi</p>'}
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="glass-card rounded-2xl border border-gray-100 shadow-lg p-8 text-center">
+            <p class="text-gray-500">Belum ada data santri yang terhubung dengan akun Anda.</p>
+            <p class="text-sm text-gray-400 mt-2">Silakan hubungi Admin untuk menghubungkan data santri.</p>
+          </div>
+        `}
+      `;
+    }
+    
+    // Camera Functions
+    async function openCamera() {
+      const modal = document.getElementById('camera-modal');
+      const video = document.getElementById('video-preview');
+      const loading = document.getElementById('camera-loading');
+      const errorEl = document.getElementById('camera-error');
+      const errorMsg = document.getElementById('camera-error-msg');
+      const scanResult = document.getElementById('scan-result');
+      
+      modal.classList.remove('hidden');
+      loading.classList.remove('hidden');
+      errorEl.classList.add('hidden');
+      scanResult.classList.add('hidden');
+      
+      try {
+        // Request camera permission
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        
+        video.srcObject = videoStream;
+        await video.play();
+        loading.classList.add('hidden');
+        
+        // Initialize barcode reader
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
+        codeReader.decodeFromVideoDevice(null, 'video-preview', async (result, err) => {
+          if (result) {
+            const barcode = result.getText();
+            await processBarcodeScan(barcode);
+          }
+        });
+        
+      } catch (error) {
+        loading.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        
+        if (error.name === 'NotAllowedError') {
+          errorMsg.textContent = 'Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser.';
+        } else if (error.name === 'NotFoundError') {
+          errorMsg.textContent = 'Kamera tidak ditemukan di perangkat ini.';
+        } else {
+          errorMsg.textContent = 'Gagal mengakses kamera: ' + error.message;
+        }
+      }
+    }
+    
+    async function processBarcodeScan(barcode) {
+      const santri = allData.find(d => d.type === 'santri' && d.santri_barcode === barcode);
+      
+      if (!santri) {
+        showToast('Barcode tidak ditemukan dalam sistem', 'error');
+        return;
+      }
+      
+      // Check if already scanned today
+      const today = new Date().toISOString().split('T')[0];
+      const existingAttendance = allData.find(d => 
+        d.type === 'attendance' && 
+        d.attendance_santri_id === santri.santri_id &&
+        d.attendance_date === today
+      );
+      
+      if (existingAttendance) {
+        showToast(`${santri.santri_name} sudah diabsen hari ini`, 'warning');
+        return;
+      }
+      
+      // Record attendance
+      const now = new Date();
+      const attendance = {
+        type: 'attendance',
+        attendance_santri_id: santri.santri_id,
+        attendance_santri_name: santri.santri_name,
+        attendance_class: santri.santri_class,
+        attendance_date: today,
+        attendance_time: now.toTimeString().split(' ')[0].substring(0, 5),
+        attendance_status: 'Hadir',
+        attendance_recorded_by: currentUser.name,
+        created_at: now.toISOString()
+      };
+      
+      const result = await window.dataSdk.create(attendance);
+      
+      if (result.isOk) {
+        // Show success in modal
+        const scanResult = document.getElementById('scan-result');
+        document.getElementById('scan-result-name').textContent = santri.santri_name;
+        document.getElementById('scan-result-class').textContent = `${santri.santri_class} - Hadir ✓`;
+        scanResult.classList.remove('hidden');
+        
+        showToast(`Absensi ${santri.santri_name} berhasil dicatat!`, 'success');
+        
+        // Play success sound effect simulation
+        setTimeout(() => {
+          scanResult.classList.add('hidden');
+        }, 3000);
+      } else {
+        showToast('Gagal mencatat absensi', 'error');
+      }
+    }
+    
+    function closeCamera() {
+      const modal = document.getElementById('camera-modal');
+      modal.classList.add('hidden');
+      
+      if (codeReader) {
+        codeReader.reset();
+        codeReader = null;
+      }
+      
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      
+      const video = document.getElementById('video-preview');
+      video.srcObject = null;
+    }
+    
+    // Delete Confirmation
+    let deleteTarget = null;
+    
+    function confirmDelete(type, id) {
+      deleteTarget = { type, id };
+      const item = allData.find(d => d.__backendId === id);
+      const name = type === 'santri' ? item?.santri_name : item?.user_name;
+      
+      const modal = document.getElementById('form-modal');
+      const title = document.getElementById('modal-title');
+      const content = document.getElementById('modal-content');
+      
+      title.textContent = 'Konfirmasi Hapus';
+      content.innerHTML = `
+        <div class="text-center py-4">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Hapus ${type === 'santri' ? 'Santri' : 'Akun'}?</h3>
+          <p class="text-gray-500 mb-6">Apakah Anda yakin ingin menghapus <strong>${name}</strong>?</p>
+          <div class="flex gap-3">
+            <button id="cancel-delete-btn" class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50">
+              Batal
+            </button>
+            <button id="confirm-delete-btn" class="flex-1 py-3 btn-danger text-white rounded-xl font-semibold">
+              Hapus
+            </button>
+          </div>
+        </div>
+      `;
+      
+      modal.classList.remove('hidden');
+      
+      document.getElementById('cancel-delete-btn').addEventListener('click', closeModal);
+      document.getElementById('confirm-delete-btn').addEventListener('click', executeDelete);
+    }
+    
+    async function executeDelete() {
+      if (!deleteTarget) return;
+      
+      const item = allData.find(d => d.__backendId === deleteTarget.id);
+      if (!item) {
+        showToast('Data tidak ditemukan', 'error');
+        closeModal();
+        return;
+      }
+      
+      const btn = document.getElementById('confirm-delete-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
+      
+      const result = await window.dataSdk.delete(item);
+      
+      if (result.isOk) {
+        showToast('Data berhasil dihapus', 'success');
+        closeModal();
+      } else {
+        showToast('Gagal menghapus data', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Hapus';
+      }
+      
+      deleteTarget = null;
+    }
+    
+    // Modal Functions
+    function closeModal() {
+      document.getElementById('form-modal').classList.add('hidden');
+      deleteTarget = null;
+    }
+    
+    // Toast Function
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-500',
+        error: 'bg-red-500',
+        warning: 'bg-amber-500',
+        info: 'bg-blue-500'
+      };
+      
+      const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+      };
+      
+      toast.className = `toast flex items-center gap-3 ${colors[type]} text-white px-5 py-3 rounded-xl shadow-lg`;
+      toast.innerHTML = `
+        <span class="text-lg">${icons[type]}</span>
+        <span class="font-medium">${message}</span>
+      `;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 4000);
+    }
+    
+    // Initialize app
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bf63755040bfe1d',t:'MTc2ODY1NjcyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
